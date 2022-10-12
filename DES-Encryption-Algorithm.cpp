@@ -2,16 +2,19 @@
 
 #include <iostream>
 #include <fstream>
-#include <vector>
 typedef unsigned long long int ulli;
 using namespace std;
 
-vector<ulli>* getInputBlocks() {
+//Global Variables
+int blocksNumber = 0;
+const int maxBlocks = 268435457;
+ulli* bitStreams = new ulli[maxBlocks]; //large-sized static array (time consuming)
+
+ulli* getInputBlocks() {
 	//sample_input contains the HEX representation of "It's Hello World"
 	//contains: 497427732048656c 6c6f20576f726c64
 	ifstream cin("sample_input.txt");
 
-	vector<ulli>* bitStreams = new vector<ulli>;
 	char ch;
 	while (!cin.eof()) {
 		ulli bitStream = 0;
@@ -23,33 +26,35 @@ vector<ulli>* getInputBlocks() {
 			}
 			else bitStream = bitStream | ((ulli)(ch - 48) << (64 - counter * 4));
 		}
-		if (counter != 1) (*bitStreams).push_back(bitStream);
+		if (counter != 1) bitStreams[blocksNumber++] = bitStream;
 	}
 
 	return bitStreams;
 }
 
-void printBitStreams(vector<ulli>* bitStreams) {
+void printBitStream(ulli bitStream) {
+	cout << "--Block Started--" << endl;
+	int flag = 1;
+	int c = 63;
+	while (c + 1) {
+		cout << ((bitStream >> c) & flag);
+		if (c % 4 == 0) cout << endl;
+		c--;
+	}
+	cout << "--Block Ended--" << endl;
+}
+
+void printBitStreams(ulli* bitStreams) {
 	//logs output to sample_output
 #pragma warning(disable : 4996)
 	auto F = freopen("sample_output.txt", "w", stdout);
 
-	for (auto bitStream : *bitStreams) {
-		cout << "--Block Started--" << endl;
-		int flag = 1;
-		int c = 63;
-		while (c + 1) {
-			cout << ((bitStream >> c) & flag);
-			if (c % 4 == 0) cout << endl;
-			c--;
-		}
-		cout << "--Block Ended--" << endl;
-	}
+	for (int i = 0; i < blocksNumber; i++) printBitStream(bitStreams[i]);
 }
 
 int main() {
 
-	vector<ulli>* bitStreams = getInputBlocks();
+	ulli* bitStreams = getInputBlocks();
 	printBitStreams(bitStreams);
 
 }

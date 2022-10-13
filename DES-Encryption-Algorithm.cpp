@@ -10,6 +10,17 @@ int blocksNumber = 0;
 const int maxBlocks = 268435457;
 ulli* bitStreams = new ulli[maxBlocks]; //large-sized static array (time consuming)
 
+ulli hexToBin(char ch) {
+	ulli bitStream;
+	if (ch >= 65) bitStream = (ulli)toupper(ch) - 55;
+	else bitStream = (ulli)ch - 48;
+	return bitStream;
+}
+
+char binToHex(ulli bitStream) {
+	return bitStream < 10 ? bitStream + 48 : (bitStream - 10) + 65;
+}
+
 ulli* getInputBlocks() {
 	//sample_input contains the HEX representation of "It's Hello World"
 	//contains: 497427732048656c 6c6f20576f726c64
@@ -22,9 +33,9 @@ ulli* getInputBlocks() {
 		while (counter++ < 16 && cin >> ch) {
 			if (ch >= 65) {
 				ch = toupper(ch);
-				bitStream = bitStream | ((ulli)(ch - 55) << (64 - counter * 4));
+				bitStream = bitStream | (((ulli)ch - 55) << (64 - counter * 4));
 			}
-			else bitStream = bitStream | ((ulli)(ch - 48) << (64 - counter * 4));
+			else bitStream = bitStream | (((ulli)ch - 48) << (64 - counter * 4));
 		}
 		if (counter != 1) bitStreams[blocksNumber++] = bitStream;
 	}
@@ -56,5 +67,8 @@ int main() {
 
 	ulli* bitStreams = getInputBlocks();
 	printBitStreams(bitStreams);
+	//Test conversion subroutines
+	//cout << hexToBin('F') << endl;
+	//cout << binToHex(6) << endl;
 
 }

@@ -29,8 +29,15 @@ int LeftShiftingIteration[16] = { 1, 1, 2, 2,
                        2, 2, 2, 1
                      };
 
-
-
+int ebit_selection_table[48] = {32, 1, 2, 3, 4, 5,
+                                4, 5, 6, 7, 8, 9,
+                                8, 9, 10, 11, 12, 13,
+                                12, 13, 14, 15, 16, 17,
+                                16, 17, 18, 19, 20, 21,
+                                20, 21, 22, 23, 24, 25,
+                                24, 25, 26, 27, 28, 29,
+                                28, 29, 30, 31, 32, 1
+                               };
 
 u64 shift(u64 input, int shiftsNum){
   u64 result = 0x00;
@@ -51,9 +58,9 @@ u64 permute(u64 plainText, int * permutationTable, int inputLen, int outputLen){
   return out;
 }
 
+u64 subKeys[16];
 u64 * keyGenerate(u64 key)
 {
-  u64 subKeys[16];
   key = permute(key, keypermutation_1, 64, 56);
   u64 rightSubkey = key & 0xFFFFFFF;
   u64 leftSubkey = (key & 0x00FFFFFFF0000000) >> 28;
@@ -68,12 +75,25 @@ u64 * keyGenerate(u64 key)
   return subKeys;
 }
 
+u64 input = 0x497427732048656c;
+
+u64 permute_xor(u64 input, u64 *subKeys, int round_no)
+{
+  u64 second_half = input & 0xFFFFFFFF;
+  u64 second_half_permuted = permute(second_half, ebit_selection_table, 32, 48);
+  u64 xored = second_half_permuted ^ subKeys[round_no];
+  printf("xored: %016llX\n", xored);
+  return xored;
+}
+
     int main()
     {
         
              //uint64_t key2 =  0x0123456789ABCDEF;
              uint64_t key = 0x133457799BBCDFF1;
              keyGenerate(key);
+             int round_no = 1;
+             permute_xor(input, subKeys, round_no);
              return 0;
 
     }

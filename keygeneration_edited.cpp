@@ -3,7 +3,11 @@
 typedef unsigned long long u64;
 using namespace std;
 
-    u64 PC1[56] = { 57,49,41,33,25,17,9,
+#define clearBit(index, data) (data &= ~(1ULL << index))
+#define setBit(index, data) (data |= u64(1ULL << index))
+#define getBit(index, data) (data >> index & 1)
+
+    int PC1[56] = { 57,49,41,33,25,17,9,
                     1,58,50,42,34,26,18,
                     10,2,59,51,43,35,27,
                     19,11,3,60,52,44,36,
@@ -12,7 +16,7 @@ using namespace std;
                     14,6,61,53,45,37,29,
                     21,13,5,28,20,12,4 };                                
 
-    u64 PC2[48] = { 14,17,11,24,1,5,
+    int PC2[48] = { 14,17,11,24,1,5,
                     3,28,15,6,21,10,
                     23,19,12,4,26,8,
                     16,7,27,20,13,2,
@@ -27,7 +31,7 @@ using namespace std;
     u64 Subkeys[16] = { 0 };
 
 // Function to take key as string from user and convert it to u64
-u64 read_DES_key(string Data)
+u64 convertKey(string Data)
 {
 
     u64 value = 0;
@@ -50,44 +54,28 @@ u64 read_DES_key(string Data)
     return value;
 }
 
-// Shifting Function 
-u64 LeftShift(u64 left_key, int round)
-{
-    u64 temp = 0;
-    
-        if (round == 1)
-        {
-            temp = left_key & (0x7FFFFFF);
-          
-            left_key = (temp << 1) | left_key>>27;
-          
-        }
 
-        else if (round == 2)
-        {
-            temp = left_key& (0x3FFFFFF);
-     
-            left_key = (temp << 2) | left_key>>26;
-           
-        }
-   
-    return left_key;
-};
-
-u64 permute(u64 input, u64 permTable[], int inputsize, int outputsize )
-{
-    u64 output = 0;
-    for (int i = 0; i < outputsize; ++i)
-
-    {
-        output |= (input >> (inputsize - permTable[i]) & 1) << outputsize - (i + 1);
-    }
-    return output;
+u64 shift(u64 input, int shiftsNum){
+  u64 result = 0x00;
+  for (int i = 0; i < shiftsNum; i++) {
+    u64 bit = u64(getBit(27, input));
+    result = input << 1;
+    clearBit(28, result);
+    result |= bit;
+    input = result;
+  }
+  return input;
 }
 
+u64 permute(u64 plainText, int * permutationTable, int inputLen, int outputLen){
+  u64 out=0;
+  for(int i=0;i<outputLen;++i)
+  out|=(plainText>>(inputLen-permutationTable[outputLen-1-i])&1)<<i;
+  return out;
+}
 
-void keygen(string k){
-    u64  Key_read = read_DES_key(k);
+void keyGenerate(string k){
+    u64  Key_read = convertKey(k);
     u64 PC1_output = permute(Key_read, PC1, 64, 56);  //56 bit output
     // Dividing 56 bits into two halves 
     u64 C = PC1_output;
@@ -101,8 +89,8 @@ void keygen(string k){
     for (int i = 0; i < 16; i++)
     {
 
-        D = LeftShift(D, LeftShiftIterations[i]);
-        C = LeftShift(C, LeftShiftIterations[i]);
+        D = shift(D, LeftShiftIterations[i]);
+        C = shift(C, LeftShiftIterations[i]);
         CombinedKey = (C << 28);
         CombinedKey = (CombinedKey | D);
         subkey_i = permute(CombinedKey, PC2, 56, 48);   // 48 bit output of PC2
@@ -122,7 +110,7 @@ void keygen(string k){
 
 //for testing
 void printsubkey(string key){
-    keygen(key);
+    keyGenerate(key);
     for(int i = 0 ; i<16 ; i++){
         cout<<std::hex<<Subkeys[i]<<endl;
     }

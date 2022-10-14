@@ -1,17 +1,18 @@
 // DES-Encryption-Algorithm.cpp : This file contains the 'main' function. Program execution begins and ends there.
-
 #include <iostream>
 #include <fstream>
-typedef unsigned long long int ulli;
-using namespace std;
 #define clearBit(index, data) (data &= ~(1ULL << index))
 #define setBit(index, data) (data |= u64(1ULL << index))
 #define getBit(index, data) (data >> index & 1)
 typedef unsigned long long u64;
+using namespace std;
 
-// permutation Tables
+//Global Variables
+int blocksNumber = 0;
+const int maxBlocks = 268435457;
+u64* bitStreams = new u64[maxBlocks]; //large-sized static array (time consuming)
+u64 subKeys[16];
 
-// this is the inverse permutation Table
 const int keyPermutation_1[56] = {
 	57, 49, 41, 33, 25, 17,  9,
 	 1, 58, 50, 42, 34, 26, 18,
@@ -111,7 +112,7 @@ const int permutation[32] = {
 	19, 13, 30,  6, 22, 11,  4, 25
 };
 
-const int FinalPermutation[64] = {
+const int finalPermutation[64] = {
 	40,  8, 48, 16, 56, 24, 64, 32,
 	39,  7, 47, 15, 55, 23, 63, 31,
 	38,  6, 46, 14, 54, 22, 62, 30,
@@ -122,37 +123,40 @@ const int FinalPermutation[64] = {
 	33,  1, 41,  9, 49, 17, 57, 25
 };
 
-//Global Variables
-int blocksNumber = 0;
-const int maxBlocks = 268435457;
-ulli* bitStreams = new ulli[maxBlocks]; //large-sized static array (time consuming)
-
-ulli hexToBin(char ch) {
-	ulli bitStream;
-	if (ch >= 65) bitStream = (ulli)toupper(ch) - 55;
-	else bitStream = (ulli)ch - 48;
+u64 hexToBin(char ch) {
+	u64 bitStream;
+	if (ch >= 65) bitStream = (u64)toupper(ch) - 55;
+	else bitStream = (u64)ch - 48;
 	return bitStream;
 }
 
-char binToHex(ulli bitStream) {
-	return bitStream < 10 ? bitStream + 48 : (bitStream - 10) + 65;
+string binToHex(u64 bitStream) {
+	string str = "";
+	for (int i = 0; i < 64; i += 4) {
+		int shift = 60 - i;
+		u64 temp = bitStream & ((u64)0xF << shift);
+		temp = temp >> shift;
+		char ch = temp < 10 ? temp + 48 : (temp - 10) + 65;
+		str += ch;
+	}
+	return str;
 }
 
-ulli* getInputBlocks() {
+u64* getInputBlocks() {
 	//sample_input contains the HEX representation of "It's Hello World"
 	//contains: 497427732048656c 6c6f20576f726c64
 	ifstream cin("sample_input.txt");
 
 	char ch;
 	while (!cin.eof()) {
-		ulli bitStream = 0;
+		u64 bitStream = 0;
 		int counter = 0;
 		while (counter++ < 16 && cin >> ch) {
 			if (ch >= 65) {
 				ch = toupper(ch);
-				bitStream = bitStream | (((ulli)ch - 55) << (64 - counter * 4));
+				bitStream = bitStream | (((u64)ch - 55) << (64 - counter * 4));
 			}
-			else bitStream = bitStream | (((ulli)ch - 48) << (64 - counter * 4));
+			else bitStream = bitStream | (((u64)ch - 48) << (64 - counter * 4));
 		}
 		if (counter != 1) bitStreams[blocksNumber++] = bitStream;
 	}
@@ -160,7 +164,7 @@ ulli* getInputBlocks() {
 	return bitStreams;
 }
 
-void printBitStream(ulli bitStream) {
+void printBitStream(u64 bitStream) {
 	cout << "--Block Started--" << endl;
 	int flag = 1;
 	int c = 63;
@@ -172,7 +176,7 @@ void printBitStream(ulli bitStream) {
 	cout << "--Block Ended--" << endl;
 }
 
-void printBitStreams(ulli* bitStreams) {
+void printBitStreams(u64* bitStreams) {
 	//logs output to sample_output
 #pragma warning(disable : 4996)
 	auto F = freopen("sample_output.txt", "w", stdout);
@@ -202,7 +206,6 @@ u64 permute(u64 plainText, const int* permutationTable, int inputLen, int output
 	return out;
 }
 
-u64 subKeys[16];
 u64* keyGenerate(u64 key)
 {
 	key = permute(key, keyPermutation_1, 64, 56);
@@ -215,7 +218,7 @@ u64* keyGenerate(u64 key)
 		rightSubkey = shift(rightSubkey, left_shifting_iteration[i]);
 		u64 combinedKey = (leftSubkey << 28) | rightSubkey;
 		u64 subKey = permute(combinedKey, keyPermutation_2, 56, 48);
-		cout << subKey << endl;
+		//cout << subKey << endl;
 		subKeys[i] = subKey;
 	}
 	return subKeys;
@@ -226,7 +229,7 @@ u64 permute_xor(u64 input, u64* subKeys, int round_no)
 	u64 second_half = input & 0xFFFFFFFF;
 	u64 second_half_permuted = permute(second_half, ebit_selection_table, 32, 48);
 	u64 xored = second_half_permuted ^ subKeys[round_no];
-	printf("xored: %016llX\n", xored);
+	//printf("xored: %016llX\n", xored);
 	return xored;
 }
 
@@ -243,23 +246,36 @@ unsigned int sbox_permute(u64 input) {
 		column = (_6bits & 0b00011110) >> 1;
 		output = (output << 4) | (s_box[i][row][column] & 0b1111);
 	}
-	cout << output;                     //0b11110001010011111111011101011100
+	//cout << output;                     //0b11110001010011111111011101011100
 
-	return unsigned int(permute(output, permutation, 32, 32));
+	return permute(output, permutation, 32, 32);
 }
 
+int main()
+{
+	//#pragma warning(disable : 4996)
+	//	auto F = freopen("sample_output.txt", "w", stdout);
 
-// this is the main flow part
-
-int main() {
-	ulli* bitStreams = getInputBlocks();
-	printBitStreams(bitStreams);
-	//uint64_t key2 =  0x0123456789ABCDEF;
-	uint64_t key = 0x133457799BBCDFF1;
+	u64* input = getInputBlocks();
+	uint64_t key = 0x0123456789ABCDEF;
+	//uint64_t key = 0x133457799BBCDFF1;
+	//497427732048656c6c6f20576f726c64
 	keyGenerate(key);
-	int round_no = 1;
-	u64 input = 0x497427732048656c;
-	u64 xored = permute_xor(input, subKeys, round_no);
-	unsigned int feistel_output = sbox_permute(xored);
+
+	for (int i = 0; i < blocksNumber; i++) {
+		u64 right_half = input[i] & 0x00000000FFFFFFFF;
+		u64 left_half = (input[i] & 0xFFFFFFFF00000000) >> 32;
+		for (int j = 0; j < 16; j++) {
+			u64 original_right = right_half;
+			u64 xored = permute_xor(right_half, subKeys, j);
+			unsigned int feistel_output = sbox_permute(xored);
+			right_half = left_half ^ (u64)feistel_output;
+			left_half = original_right;
+			cout << "Round " << j + 1 << " " << binToHex(left_half) << " " << binToHex(right_half) << " " << binToHex(subKeys[j]) << endl;
+		}
+		u64 cipher = permute((right_half << 32) | left_half, finalPermutation, 64, 64);
+		cout << "Cipher text: " << binToHex(cipher);
+	}
+
 	return 0;
 }

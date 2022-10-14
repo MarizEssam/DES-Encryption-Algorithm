@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="DES-Encryption-Algorithm.cpp">
+    <ClCompile Include="des_g08.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

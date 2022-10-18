@@ -1,5 +1,7 @@
 
 #include <iostream>
+#include <fstream>
+
 typedef unsigned long long u64;
 using namespace std;
 
@@ -29,6 +31,28 @@ using namespace std;
 
     string Mode;  // Encryption or Decryption mode
     u64 Subkeys[16] = { 0 };
+
+
+////read key.txt
+
+    string readKeyFile(string  filename){
+    char key[16] = "" ;   //char array (string) to save key value
+    FILE* input_file = fopen(filename.c_str(), "r");
+    if (input_file == nullptr) {
+       return "EXIT_FAILURE";
+    }
+    int i = 0;
+    // reading char by char
+    while (!feof(input_file)) {
+       key[i] = getc(input_file);
+       //cout << key[i];
+       i++;
+    }
+    //cout << endl;
+    fclose(input_file);
+    return key;
+}
+
 
 // Function to take key as string from user and convert it to u64
 u64 convertKey(string Data)
@@ -121,11 +145,12 @@ void printsubkey(string key){
 //test
 int main(){
     string Key;
-    cout<< "Enter The Key: "<< endl;
-    cin >> Key;
-    
+   // cout<< "Enter The Key: "<< endl;
+    //cin >> Key;
     cout<<"What's your Mode Encrypt or Decrypt: "<< endl;
     cin >> Mode;
-    printsubkey(Key);
+   Key = readKeyFile("keysample.txt");
+   cout<<"Key used: "<< Key<<endl;
+   printsubkey(Key);
 
 }

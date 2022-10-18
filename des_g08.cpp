@@ -245,20 +245,6 @@ string bintoASCII(u64 bitStream, int length) {
 	return s;
 }
 
-void printASCII(string s) {
-	fstream encrypted;
-	encrypted.open("encrypted.txt", ios::app);
-	encrypted << s;
-	encrypted.close();
-}
-
-void printHEX(string s) {
-	fstream hex;
-	hex.open("hex.txt", ios::app);
-	hex << s;
-	hex.close();
-}
-
 void clearFiles() {
 	remove("debug.txt");
 	remove("encrypted.txt");
@@ -269,8 +255,11 @@ int main() {
 	//clear output files
 	clearFiles();
 
-	fstream debug;
+	//opening output files with appending option enabled
+	fstream debug, hex, encrypted;
 	debug.open("debug.txt", ios::app);
+	hex.open("hex.txt", ios::app);
+	encrypted.open("encrypted.txt", ios::app);
 
 	u64* input = getInputBlocks();
 
@@ -293,9 +282,11 @@ int main() {
 		}
 		cipher = permute(((u64)right_half << 32) | left_half, finalPermutation, 64, 64);
 		debug << "Cipher text: " << binToHex(cipher, 64) << "\n\n";
-		printHEX(binToHex(cipher, 64));
-		printASCII(bintoASCII(cipher, 64));
+		hex << binToHex(cipher, 64);
+		encrypted << bintoASCII(cipher, 64);
 	}
 	debug.close();
+	hex.close();
+	encrypted.close();
 	return 0;
 }

@@ -6,7 +6,6 @@ typedef unsigned long long u64;
 using namespace std;
 
 #define clearBit(index, data) (data &= ~(1ULL << index))
-#define setBit(index, data) (data |= u64(1ULL << index))
 #define getBit(index, data) (data >> index & 1)
 
     int PC1[56] = { 57,49,41,33,25,17,9,

@@ -6,6 +6,7 @@ using namespace std;
 typedef unsigned long u32;
 typedef unsigned long long u64;
 
+//Preprocessor Macros
 #define getBit(index, data)		(data >> index & 1)
 #define clearBit(index, data)	(data &= ~(1ULL << index))
 
@@ -154,7 +155,7 @@ void logicForHEX(char ch, int counter) {
 	else bitStream = bitStream | (((u64)ch - 48) << (64 - counter * 4));
 }
 
-//read HEX data from the specified file
+//read input data from the specified file
 void readData(string fileName, void (*logic)(char, int)) {
 	ifstream cin(fileName);
 
@@ -167,10 +168,12 @@ void readData(string fileName, void (*logic)(char, int)) {
 		while (counter++ < times && cin >> noskipws >> ch) {
 			logic(ch, counter);
 		}
-		if (counter != 1 && fileName != "key.txt") bitStreams[blocksNumber++] = bitStream;
+		if (counter != 1 && fileName != "key.txt")  bitStreams[blocksNumber++] = bitStream;
+		else if (fileName == "key.txt")				return;
 	}
 }
 
+//left circular shift by the specified number of shifts
 u32 shift(u32 input, int shiftsNum) {
 	u32 result = 0x00;
 	for (int i = 0; i < shiftsNum; i++) {
@@ -183,6 +186,7 @@ u32 shift(u32 input, int shiftsNum) {
 	return input;
 }
 
+//general function to perform the logic of permutation by specified permutation table
 u64 permute(u64 plainText, const int* permutationTable, int inputLen, int outputLen) {
 	u64 out = 0;
 	for (int i = 0; i < outputLen; ++i)
@@ -190,6 +194,7 @@ u64 permute(u64 plainText, const int* permutationTable, int inputLen, int output
 	return out;
 }
 
+//generate 16 subkeys from the input key
 void keyGenerate(u64 k) {
 	u64 effectiveKey = permute(k, keyPermutation_1, 64, 56);  //56 bit output of PC1
 
@@ -213,10 +218,15 @@ void keyGenerate(u64 k) {
 	}
 }
 
+//implementation of feistel function
 u32 feistel_function(u32 second_half, u64* subKeys, int round_no) {
+	//expansion permutation
 	u64 second_half_permuted = permute((u64)second_half, ebit_selection_table, 32, 48);
+
+	//xoring with the correct subkey specified by the round number
 	u64 xored = second_half_permuted ^ subKeys[round_no];
 
+	//s-boxes logic
 	u64 mask = 0x0000FC0000000000;
 	u32 row, column, sbox_output = 0;
 	for (int i = 0; i < 8; i++) {
@@ -228,9 +238,11 @@ u32 feistel_function(u32 second_half, u64* subKeys, int round_no) {
 		sbox_output = (sbox_output << 4) | (s_box[i][row][column] & 0b1111);
 	}
 
+	//permutation and return of the feistel function output
 	return permute((u64)sbox_output, permutation, 32, 32);
 }
 
+//get the HEX formatted output
 string binToHEX(u64 bitStream, int length) {
 	string str = "";
 	for (int i = 0; i < length; i += 4) {
@@ -243,6 +255,7 @@ string binToHEX(u64 bitStream, int length) {
 	return str;
 }
 
+//get the ASCII formatted output
 string binToASCII(u64 bitStream, int length) {
 	string s = "";
 	for (int i = 0; i < 8; i++) {
@@ -252,6 +265,7 @@ string binToASCII(u64 bitStream, int length) {
 	return s;
 }
 
+//clear output files
 void clearFiles() {
 	remove("debug.txt");
 	if (mode == "Encrypt") {
@@ -261,6 +275,7 @@ void clearFiles() {
 	else if (mode == "Decrypt") remove("decrypt.txt");
 }
 
+//main function
 int main() {
 	// mode selection
 	cout << "What's your mode? (Encrypt or Decrypt): ";
@@ -279,15 +294,16 @@ int main() {
 	else if (mode == "Decrypt") output_file.open("decrypt.txt", ios::app);
 
 	//get input data
-	if (mode == "Encrypt") readData("plain.txt", logicForASCII);
+	if (mode == "Encrypt")		readData("plain.txt", logicForASCII);
 	else if (mode == "Decrypt") readData("hex.txt", logicForHEX);
 	u64* input = bitStreams;
 
-	//get key
+	//get HEX formatted input key and generate the 16 subkeys
 	readData("key.txt", logicForHEX);
 	u64 key = bitStream;
 	keyGenerate(key);
 
+	//execute DES algorithm
 	u64 permuted_input, cipher;
 	u32 right_half, left_half, original_right;
 	for (u32 i = 0; i < blocksNumber; i++) {
@@ -308,6 +324,8 @@ int main() {
 		if (mode == "Encrypt") hex << binToHEX(cipher, 64);
 		output_file << binToASCII(cipher, 64);
 	}
+
+	//close output files
 	debug.close();
 	if (mode == "Encrypt") hex.close();
 	output_file.close();

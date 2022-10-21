@@ -3,18 +3,18 @@
 #include <fstream>
 using namespace std;
 
-typedef unsigned int u32;
+typedef unsigned long u32;
 typedef unsigned long long u64;
 
-#define getBit(index, data) (data >> index & 1)
-#define clearBit(index, data) (data &= ~(1ULL << index))
+#define getBit(index, data)		(data >> index & 1)
+#define clearBit(index, data)	(data &= ~(1ULL << index))
 
 //Global Variables
-int blocksNumber = 0;
-const int maxBlocks = 268435457;
-u64* bitStreams = new u64[maxBlocks]; //large-sized static array (time consuming)
+u32 blocksNumber = 0;
+const u32 maxBlocks = 268435457;		//max input file size = 2GB ... max number of blocks = 2GB / 8B = 2^31 / 2^3 = 2^28 = 268435456
+u64* bitStreams = new u64[maxBlocks];	//large-sized static array (time consuming)
 u64 subKeys[16];
-string Mode;  // Encryption or Decryption mode
+string mode;							//Encryption or Decryption mode
 
 //Permutation Tables
 const int keyPermutation_1[56] = {
@@ -154,70 +154,23 @@ u64* getInputBlocks() {
 	return bitStreams;
 }
 
-/*
-////read key.txt
-
-    string readKeyFile(string  filename){
-    char key[16] = "" ;   //char array (string) to save key value
-    FILE* input_file = fopen(filename.c_str(), "r");
-    if (input_file == nullptr) {
-       return "EXIT_FAILURE";
-    }
-    int i = 0;
-    // reading char by char
-    while (!feof(input_file)) {
-       key[i] = getc(input_file);
-       //cout << key[i];
-       i++;
-    }
-    //cout << endl;
-    fclose(input_file);
-    return key;
-}
-
-
-// Function to take key as string from user and convert it to u64
-u64 convertKey(string Data)
-{
-
-    u64 value = 0;
-    for (int i = 0; i < Data.length(); ++i)
-    {
-        char c = Data[i];
-        if (c >= '0' && c <= '9')
-        {
-            value |= (u64)(c - '0') << ((15 - i) << 2);
-        }
-        else if (c >= 'A' && c <= 'F')
-        {
-            value |= (u64)(c - 'A' + 10) << ((15 - i) << 2);
-        }
-        else if (c >= 'a' && c <= 'f')
-        {
-            value |= (u64)(c - 'a' + 10) << ((15 - i) << 2);
-        }
-    }
-    return value;
-}
-*/
-
 //get HEX formatted key
 u64 getKey() {
 	ifstream cin("key.txt");
 
-	u64 bitStream = 0;
+	u64 key = 0;
 	while (!cin.eof()) {
 		char ch;
 		int counter = 0;
 		while (counter++ < 16 && cin >> ch) {
 			if (ch >= 65) {
 				ch = toupper(ch);
-				bitStream = bitStream | (((u64)ch - 55) << (64 - counter * 4));
+				key = key | (((u64)ch - 55) << (64 - counter * 4));
 			}
-			else bitStream = bitStream | (((u64)ch - 48) << (64 - counter * 4));
+			else key = key | (((u64)ch - 48) << (64 - counter * 4));
 		}
 	}
-	return bitStream;
+	return key;
 }
 
 u32 shift(u32 input, int shiftsNum) {
@@ -239,47 +192,27 @@ u64 permute(u64 plainText, const int* permutationTable, int inputLen, int output
 	return out;
 }
 
-void keyGenerate(u64 k){
-    //u64  Key_read = convertKey(k);
-    u64 PC1_output = permute(k, keyPermutation_1, 64, 56);  //56 bit output
-    // Dividing 56 bits into two halves 
-    u64 C = PC1_output;
-    u64 D = PC1_output;
-    D = (D & 0x0000000FFFFFFF);   //28 bits
-    C = (C >> 28);               //28 bits
-    u64 CombinedKey = 0;   // C and D combined
-    u64 subkey_i = 0;  //48 bit subkey of Round_i
+void keyGenerate(u64 k) {
+	u64 effectiveKey = permute(k, keyPermutation_1, 64, 56);  //56 bit output of PC1
 
-// Left Circular Shift
-    for (int i = 0; i < 16; i++)
-    {
+	// Dividing 56 bits into two halves 
+	u32 D = (effectiveKey & 0x0000000FFFFFFF);	//28 bits
+	u32 C = (effectiveKey >> 28);				//28 bits
+	u64 CombinedKey = 0;						//C and D combined
+	u64 subkey_i = 0;							//48 bit subkey of Round_i
 
-        D = shift(D, left_shifting_iteration[i]);
-        C = shift(C, left_shifting_iteration[i]);
-        CombinedKey = (C << 28);
-        CombinedKey = (CombinedKey | D);
-        subkey_i = permute(CombinedKey, keyPermutation_2, 56, 48);   // 48 bit output of PC2
-        //cout<<subkey_i<<endl;
-        //Pushing subkey into its right place in subkeys array depending on mode
-        if (Mode == "Encrypt")
-        {
-            subKeys[i] = subkey_i;
+	for (int i = 0; i < 16; i++) {
+		// Left Circular Shift
+		D = shift(D, left_shifting_iteration[i]);
+		C = shift(C, left_shifting_iteration[i]);
 
-        }
-        else  if (Mode == "Decrypt")
-        {
-            subKeys[15 - i] = subkey_i;
-        }
-}
-}
+		CombinedKey = ((u64)C << 28) | D;
+		subkey_i = permute(CombinedKey, keyPermutation_2, 56, 48);   //48 bit output of PC2
 
-//for testing
-void printsubkey( u64 key){
-    keyGenerate(key);
-    for(int i = 0 ; i<16 ; i++){
-        cout<<std::hex<<subKeys[i]<<endl;
-    }
-
+		//Pushing subkey into its right place in subkeys array depending on mode
+		if (mode == "Encrypt")			subKeys[i] = subkey_i;
+		else if (mode == "Decrypt")		subKeys[15 - i] = subkey_i;
+	}
 }
 
 u32 feistel_function(u32 second_half, u64* subKeys, int round_no) {
@@ -312,8 +245,8 @@ string binToHex(u64 bitStream, int length) {
 	return str;
 }
 
-string bintoASCII(u64 bitStream, int length) {
-	string s;
+string binToASCII(u64 bitStream, int length) {
+	string s = "";
 	for (int i = 0; i < 8; i++) {
 		int shift = length - 8 * (i + 1);
 		s += (bitStream & ((u64)0xFF << shift)) >> shift;
@@ -323,51 +256,56 @@ string bintoASCII(u64 bitStream, int length) {
 
 void clearFiles() {
 	remove("debug.txt");
-	remove("encrypted.txt");
-	remove("hex.txt");
+	if (mode == "Encrypt") { 
+		remove("hex.txt");
+		remove("encrypted.txt"); 
+	}
+	else if (mode == "Decrypt") remove("decrypt.txt");
 }
 
 int main() {
-    // mode selection
-	cout<<"What's your Mode Encrypt or Decrypt: "<< endl;
-    cin >> Mode;
+	// mode selection
+	cout << "What's your mode? (Encrypt or Decrypt): " << endl;
+	cin >> mode;
+
 	//clear output files
 	clearFiles();
 
 	//opening output files with appending option enabled
-	fstream debug, hex, encrypted;
+	fstream debug, hex, output_file;
 	debug.open("debug.txt", ios::app);
-	hex.open("hex.txt", ios::app);
-	encrypted.open("encrypted.txt", ios::app);
+	if (mode == "Encrypt") {
+		hex.open("hex.txt", ios::app);
+		output_file.open("encrypted.txt", ios::app);
+	}
+	else if (mode == "Decrypt") output_file.open("decrypt.txt", ios::app);
 
 	u64* input = getInputBlocks();
-    //string Key;
-    //Key = readKeyFile("keysample.txt");
-    u64 key = getKey();
+	u64 key = getKey();
 	keyGenerate(key);
-	//printsubkey(key);
 
 	u64 permuted_input, cipher;
-	u32 right_half, left_half, original_right, feistel_output;
-	for (int i = 0; i < blocksNumber; i++) {
+	u32 right_half, left_half, original_right;
+	for (u32 i = 0; i < blocksNumber; i++) {
 		permuted_input = permute(input[i], initialPermutation, 64, 64);
 		right_half = permuted_input & 0x00000000FFFFFFFF;
 		left_half = (permuted_input & 0xFFFFFFFF00000000) >> 32;
 		debug << "Rounds applied to input block number " << i + 1 << ":\n";
+
 		for (int j = 0; j < 16; j++) {
 			original_right = right_half;
-			feistel_output = feistel_function(right_half, subKeys, j);
-			right_half = left_half ^ feistel_output;
+			right_half = left_half ^ feistel_function(right_half, subKeys, j);
 			left_half = original_right;
 			debug << "Round " << j + 1 << " " << binToHex(left_half, 32) << " " << binToHex(right_half, 32) << " " << binToHex(subKeys[j], 48) << endl;
 		}
+
 		cipher = permute(((u64)right_half << 32) | left_half, finalPermutation, 64, 64);
 		debug << "Cipher text: " << binToHex(cipher, 64) << "\n\n";
-		hex << binToHex(cipher, 64);
-		encrypted << bintoASCII(cipher, 64);
+		if(mode == "Encrypt") hex << binToHex(cipher, 64);
+		output_file << binToASCII(cipher, 64);
 	}
 	debug.close();
-	hex.close();
-	encrypted.close();
+	if (mode == "Encrypt") hex.close();
+	output_file.close();
 	return 0;
 }

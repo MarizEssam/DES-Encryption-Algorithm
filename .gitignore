@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+#output files
+debug.txt
+hex.txt
+encrypted.txt
+decrypt.txt

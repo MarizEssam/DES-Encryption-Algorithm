@@ -14,6 +14,7 @@ u32 blocksNumber = 0;
 const u32 maxBlocks = 268435457;		//max input file size = 2GB ... max number of blocks = 2GB / 8B = 2^31 / 2^3 = 2^28 = 268435456
 u64* bitStreams = new u64[maxBlocks];	//large-sized static array (time consuming)
 u64 subKeys[16];
+u64 bitStream;
 string mode;							//Encryption or Decryption mode
 
 //Permutation Tables
@@ -139,38 +140,35 @@ const int finalPermutation[64] = {
 };
 
 //Functions
-//get ASCII formatted input
-u64* getInputBlocks() {
-	ifstream cin("plain.txt");
-
-	while (!cin.eof()) {
-		char ch;
-		u64 bitStream = 0;
-		int counter = 0;
-		while (counter++ < 8 && cin >> noskipws >> ch)
-			bitStream = bitStream | ((u64)ch << (64 - counter * 8));
-		if (counter != 1) bitStreams[blocksNumber++] = bitStream;
-	}
-	return bitStreams;
+//helper function to specify the logic for reading data from ASCII file
+void logicForASCII(char ch, int counter) {
+	bitStream = bitStream | ((u64)ch << (64 - counter * 8));
 }
 
-//get HEX formatted key
-u64 getKey() {
-	ifstream cin("key.txt");
+//helper function to specify the logic for reading data from HEX file
+void logicForHEX(char ch, int counter) {
+	if (ch >= 65) {
+		ch = toupper(ch);
+		bitStream = bitStream | (((u64)ch - 55) << (64 - counter * 4));
+	}
+	else bitStream = bitStream | (((u64)ch - 48) << (64 - counter * 4));
+}
 
-	u64 key = 0;
+//read HEX data from the specified file
+void readData(string fileName, void (*logic)(char, int)) {
+	ifstream cin(fileName);
+
 	while (!cin.eof()) {
 		char ch;
+		bitStream = 0;
 		int counter = 0;
-		while (counter++ < 16 && cin >> ch) {
-			if (ch >= 65) {
-				ch = toupper(ch);
-				key = key | (((u64)ch - 55) << (64 - counter * 4));
-			}
-			else key = key | (((u64)ch - 48) << (64 - counter * 4));
+		int times = 16;
+		if (fileName == "plain.txt") times = 8;
+		while (counter++ < times && cin >> noskipws >> ch) {
+			logic(ch, counter);
 		}
+		if (counter != 1 && fileName != "key.txt") bitStreams[blocksNumber++] = bitStream;
 	}
-	return key;
 }
 
 u32 shift(u32 input, int shiftsNum) {
@@ -233,7 +231,7 @@ u32 feistel_function(u32 second_half, u64* subKeys, int round_no) {
 	return permute((u64)sbox_output, permutation, 32, 32);
 }
 
-string binToHex(u64 bitStream, int length) {
+string binToHEX(u64 bitStream, int length) {
 	string str = "";
 	for (int i = 0; i < length; i += 4) {
 		int shift = length - i - 4;
@@ -256,16 +254,16 @@ string binToASCII(u64 bitStream, int length) {
 
 void clearFiles() {
 	remove("debug.txt");
-	if (mode == "Encrypt") { 
+	if (mode == "Encrypt") {
 		remove("hex.txt");
-		remove("encrypted.txt"); 
+		remove("encrypted.txt");
 	}
 	else if (mode == "Decrypt") remove("decrypt.txt");
 }
 
 int main() {
 	// mode selection
-	cout << "What's your mode? (Encrypt or Decrypt): " << endl;
+	cout << "What's your mode? (Encrypt or Decrypt): ";
 	cin >> mode;
 
 	//clear output files
@@ -280,8 +278,14 @@ int main() {
 	}
 	else if (mode == "Decrypt") output_file.open("decrypt.txt", ios::app);
 
-	u64* input = getInputBlocks();
-	u64 key = getKey();
+	//get input data
+	if (mode == "Encrypt") readData("plain.txt", logicForASCII);
+	else if (mode == "Decrypt") readData("hex.txt", logicForHEX);
+	u64* input = bitStreams;
+
+	//get key
+	readData("key.txt", logicForHEX);
+	u64 key = bitStream;
 	keyGenerate(key);
 
 	u64 permuted_input, cipher;
@@ -296,12 +300,12 @@ int main() {
 			original_right = right_half;
 			right_half = left_half ^ feistel_function(right_half, subKeys, j);
 			left_half = original_right;
-			debug << "Round " << j + 1 << " " << binToHex(left_half, 32) << " " << binToHex(right_half, 32) << " " << binToHex(subKeys[j], 48) << endl;
+			debug << "Round " << j + 1 << " " << binToHEX(left_half, 32) << " " << binToHEX(right_half, 32) << " " << binToHEX(subKeys[j], 48) << endl;
 		}
 
 		cipher = permute(((u64)right_half << 32) | left_half, finalPermutation, 64, 64);
-		debug << "Cipher text: " << binToHex(cipher, 64) << "\n\n";
-		if(mode == "Encrypt") hex << binToHex(cipher, 64);
+		debug << "Cipher text: " << binToHEX(cipher, 64) << "\n\n";
+		if (mode == "Encrypt") hex << binToHEX(cipher, 64);
 		output_file << binToASCII(cipher, 64);
 	}
 	debug.close();

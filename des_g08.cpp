@@ -286,7 +286,7 @@ int main() {
 
 	//opening output files with appending option enabled
 	fstream debug, hex, output_file;
-	debug.open("debug.txt", ios::app);
+	// debug.open("debug.txt", ios::app);
 	if (mode == "Encrypt") {
 		hex.open("hex.txt", ios::app);
 		output_file.open("encrypted.txt", ios::app);
@@ -310,23 +310,23 @@ int main() {
 		permuted_input = permute(input[i], initialPermutation, 64, 64);
 		right_half = permuted_input & 0x00000000FFFFFFFF;
 		left_half = (permuted_input & 0xFFFFFFFF00000000) >> 32;
-		debug << "Rounds applied to input block number " << i + 1 << ":\n";
+		// debug << "Rounds applied to input block number " << i + 1 << ":\n";
 
 		for (int j = 0; j < 16; j++) {
 			original_right = right_half;
 			right_half = left_half ^ feistel_function(right_half, subKeys, j);
 			left_half = original_right;
-			debug << "Round " << j + 1 << " " << binToHEX(left_half, 32) << " " << binToHEX(right_half, 32) << " " << binToHEX(subKeys[j], 48) << endl;
+			// debug << "Round " << j + 1 << " " << binToHEX(left_half, 32) << " " << binToHEX(right_half, 32) << " " << binToHEX(subKeys[j], 48) << endl;
 		}
 
 		cipher = permute(((u64)right_half << 32) | left_half, finalPermutation, 64, 64);
-		debug << "Cipher text: " << binToHEX(cipher, 64) << "\n\n";
+		// debug << "Cipher text: " << binToHEX(cipher, 64) << "\n\n";
 		if (mode == "Encrypt") hex << binToHEX(cipher, 64);
 		output_file << binToASCII(cipher, 64);
 	}
 
 	//close output files
-	debug.close();
+	// debug.close();
 	if (mode == "Encrypt") hex.close();
 	output_file.close();
 	return 0;

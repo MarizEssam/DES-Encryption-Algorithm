@@ -1,10 +1,11 @@
-// DES-Encryption-Algorithm.cpp : This file contains the 'main' function. Program execution begins and ends there.
+//Data Encryption Standard (DES) Algorithm
 #include <iostream>
 #include <fstream>
 using namespace std;
 
 typedef unsigned long u32;
 typedef unsigned long long u64;
+typedef unsigned char byte;
 
 //Preprocessor Macros
 #define getBit(index, data)		(data >> index & 1)
@@ -16,7 +17,8 @@ const u32 maxBlocks = 268435457;		//max input file size = 2GB ... max number of 
 u64* bitStreams = new u64[maxBlocks];	//large-sized static array (time consuming)
 u64 subKeys[16];
 u64 bitStream;
-string mode;							//Encryption or Decryption mode
+string input_file_name, key_file_name, output_file_name; //file names
+string mode;							//encryption or decryption mode
 
 //Permutation Tables
 const int keyPermutation_1[56] = {
@@ -142,12 +144,12 @@ const int finalPermutation[64] = {
 
 //Functions
 //helper function to specify the logic for reading data from ASCII file
-void logicForASCII(char ch, int counter) {
+void logicForASCII(byte ch, int counter) {
 	bitStream = bitStream | ((u64)ch << (64 - counter * 8));
 }
 
 //helper function to specify the logic for reading data from HEX file
-void logicForHEX(char ch, int counter) {
+void logicForHEX(byte ch, int counter) {
 	if (ch >= 65) {
 		ch = toupper(ch);
 		bitStream = bitStream | (((u64)ch - 55) << (64 - counter * 4));
@@ -156,20 +158,19 @@ void logicForHEX(char ch, int counter) {
 }
 
 //read input data from the specified file
-void readData(string fileName, void (*logic)(char, int)) {
-	ifstream cin(fileName);
+void readData(string fileName, void (*logic)(byte, int)) {
+	ifstream cin(fileName, ios_base::binary);
 
 	while (!cin.eof()) {
-		char ch;
+		byte ch;
 		bitStream = 0;
 		int counter = 0;
 		int times = 16;
-		if (fileName == "plain.txt") times = 8;
-		while (counter++ < times && cin >> noskipws >> ch) {
+		if (fileName == input_file_name) times = 8;
+		while (counter++ < times && cin >> noskipws >> ch)
 			logic(ch, counter);
-		}
-		if (counter != 1 && fileName != "key.txt")  bitStreams[blocksNumber++] = bitStream;
-		else if (fileName == "key.txt")				return;
+		if (counter != 1 && fileName != key_file_name)	bitStreams[blocksNumber++] = bitStream;
+		else											return;
 	}
 }
 
@@ -177,7 +178,7 @@ void readData(string fileName, void (*logic)(char, int)) {
 u32 shift(u32 input, int shiftsNum) {
 	u32 result = 0x00;
 	for (int i = 0; i < shiftsNum; i++) {
-		char bit = getBit(27, input);
+		byte bit = getBit(27, input);
 		result = input << 1;
 		clearBit(28, result);
 		result |= (bit & 1);
@@ -213,8 +214,8 @@ void keyGenerate(u64 k) {
 		subkey_i = permute(CombinedKey, keyPermutation_2, 56, 48);   //48 bit output of PC2
 
 		//Pushing subkey into its right place in subkeys array depending on mode
-		if (mode == "Encrypt")			subKeys[i] = subkey_i;
-		else if (mode == "Decrypt")		subKeys[15 - i] = subkey_i;
+		if (mode == "encrypt")			subKeys[i] = subkey_i;
+		else if (mode == "decrypt")		subKeys[15 - i] = subkey_i;
 	}
 }
 
@@ -230,7 +231,7 @@ u32 feistel_function(u32 second_half, u64* subKeys, int round_no) {
 	u64 mask = 0x0000FC0000000000;
 	u32 row, column, sbox_output = 0;
 	for (int i = 0; i < 8; i++) {
-		char _6bits = 0;
+		byte _6bits = 0;
 		_6bits = (xored & mask) >> (42 - 6 * i);
 		mask = mask >> 6;
 		row = ((_6bits & 0b00100000) >> 4) + (_6bits & 1);
@@ -249,7 +250,7 @@ string binToHEX(u64 bitStream, int length) {
 		int shift = length - i - 4;
 		u64 temp = bitStream & ((u64)0xF << shift);
 		temp = temp >> shift;
-		char ch = temp < 10 ? temp + 48 : (temp - 10) + 65;
+		byte ch = temp < 10 ? temp + 48 : (temp - 10) + 65;
 		str += ch;
 	}
 	return str;
@@ -265,41 +266,27 @@ string binToASCII(u64 bitStream, int length) {
 	return s;
 }
 
-//clear output files
-void clearFiles() {
-	remove("debug.txt");
-	if (mode == "Encrypt") {
-		remove("hex.txt");
-		remove("encrypted.txt");
-	}
-	else if (mode == "Decrypt") remove("decrypt.txt");
-}
-
 //main function
-int main() {
-	// mode selection
-	cout << "What's your mode? (Encrypt or Decrypt): ";
-	cin >> mode;
+int main(int argc, char** argv) {
+	//getting args
+	mode = argv[1];
+	input_file_name = argv[2];
+	key_file_name = argv[3];
+	output_file_name = argv[4];
 
-	//clear output files
-	clearFiles();
+	//clear output file
+	remove(output_file_name.c_str());
 
 	//opening output files with appending option enabled
-	fstream debug, hex, output_file;
-	// debug.open("debug.txt", ios::app);
-	if (mode == "Encrypt") {
-		hex.open("hex.txt", ios::app);
-		output_file.open("encrypted.txt", ios::app);
-	}
-	else if (mode == "Decrypt") output_file.open("decrypt.txt", ios::app);
+	fstream output_file;
+	output_file.open(output_file_name, ios::app | ios_base::binary);
 
 	//get input data
-	if (mode == "Encrypt")		readData("plain.txt", logicForASCII);
-	else if (mode == "Decrypt") readData("hex.txt", logicForHEX);
+	readData(input_file_name, logicForASCII);
 	u64* input = bitStreams;
 
 	//get HEX formatted input key and generate the 16 subkeys
-	readData("key.txt", logicForHEX);
+	readData(key_file_name, logicForHEX);
 	u64 key = bitStream;
 	keyGenerate(key);
 
@@ -310,24 +297,18 @@ int main() {
 		permuted_input = permute(input[i], initialPermutation, 64, 64);
 		right_half = permuted_input & 0x00000000FFFFFFFF;
 		left_half = (permuted_input & 0xFFFFFFFF00000000) >> 32;
-		// debug << "Rounds applied to input block number " << i + 1 << ":\n";
 
 		for (int j = 0; j < 16; j++) {
 			original_right = right_half;
 			right_half = left_half ^ feistel_function(right_half, subKeys, j);
 			left_half = original_right;
-			// debug << "Round " << j + 1 << " " << binToHEX(left_half, 32) << " " << binToHEX(right_half, 32) << " " << binToHEX(subKeys[j], 48) << endl;
 		}
 
 		cipher = permute(((u64)right_half << 32) | left_half, finalPermutation, 64, 64);
-		// debug << "Cipher text: " << binToHEX(cipher, 64) << "\n\n";
-		if (mode == "Encrypt") hex << binToHEX(cipher, 64);
 		output_file << binToASCII(cipher, 64);
 	}
 
-	//close output files
-	// debug.close();
-	if (mode == "Encrypt") hex.close();
+	//close output file
 	output_file.close();
 	return 0;
 }

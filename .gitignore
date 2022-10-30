@@ -363,7 +363,5 @@ MigrationBackup/
 FodyWeavers.xsd
 
 #output files
-debug.txt
-hex.txt
-encrypted.txt
-decrypt.txt
+*.txt
+*.dat
